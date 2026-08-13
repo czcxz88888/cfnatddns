@@ -153,8 +153,12 @@ fun ScannerScreen(
             val uniqueResults = scanProgress.results.distinctBy { it.ip }
             if (scanConfig.coloFilter.isNotBlank()) {
                 val filters = scanConfig.coloFilter.split(",").map { it.trim().uppercase() }
-                uniqueResults.filter { ip ->
-                    filters.any { filter -> ip.dataCenter.equals(filter, ignoreCase = true) }
+                if (filters.contains("ALL")) {
+                    uniqueResults
+                } else {
+                    uniqueResults.filter { ip ->
+                        filters.any { filter -> ip.dataCenter.equals(filter, ignoreCase = true) }
+                    }
                 }
             } else {
                 uniqueResults
