@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -29,7 +28,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.screens.DnsSyncScreen
-import com.example.ui.screens.EdgeLocationsScreen
 import com.example.ui.screens.SavedIpScreen
 import com.example.ui.screens.ScannerScreen
 import com.example.ui.theme.CfOrangePrimary
@@ -52,7 +50,6 @@ fun MainAppScreen(
 
     val tabs = listOf(
         NavTabItem("Scanner", Icons.Default.Bolt, "tab_scanner"),
-        NavTabItem("Edge Nodes", Icons.Default.Public, "tab_edge"),
         NavTabItem("Saved IPs", Icons.Default.Storage, "tab_saved"),
         NavTabItem("CF Sync", Icons.Default.CloudSync, "tab_dns")
     )
@@ -114,14 +111,11 @@ fun MainAppScreen(
                     scanProgress = scanProgress,
                     scanConfig = scanConfig
                 )
-                1 -> EdgeLocationsScreen(
-                    viewModel = viewModel
-                )
-                2 -> SavedIpScreen(
+                1 -> SavedIpScreen(
                     viewModel = viewModel,
                     savedIps = savedIps
                 )
-                3 -> DnsSyncScreen(
+                2 -> DnsSyncScreen(
                     viewModel = viewModel,
                     dnsRules = dnsRules
                 )
