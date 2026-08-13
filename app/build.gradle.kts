@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.cfipscanner.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 5
-    versionName = "1.27"
+    versionCode = 2
+    versionName = "1.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -34,10 +34,11 @@ android {
 
   signingConfigs {
     create("release") {
-      storeFile = file("${rootDir}/release.keystore")
-      storePassword = "cfipscanner"
-      keyAlias = "myapp"
-      keyPassword = "cfipscanner"
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      storeFile = file(keystorePath)
+      storePassword = System.getenv("STORE_PASSWORD")
+      keyAlias = "upload"
+      keyPassword = System.getenv("KEY_PASSWORD")
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -54,7 +55,7 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { signingConfig = signingConfigs.getByName("release") }
+    debug { signingConfig = signingConfigs.getByName("debugConfig") }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
