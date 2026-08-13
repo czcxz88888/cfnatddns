@@ -36,15 +36,16 @@ jobs:
         run: touch .env
 
       # ----------------------------------------------------
-      # ⬇️ ⬇️ 就是缺了这一步！还原 Android 签名证书 ⬇️ ⬇️
+      # 智能处理签名文件：有就还原，没有就自动生成！
       # ----------------------------------------------------
-      - name: Decode debug.keystore
+      - name: Prepare debug.keystore
         run: |
           if [ -f debug.keystore.base64 ]; then
             base64 -d debug.keystore.base64 > debug.keystore
+            echo "Decoded existing debug.keystore.base64"
           else
-            echo "Error: debug.keystore.base64 not found in repository!"
-            exit 1
+            echo "Generating a temporary debug.keystore..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
           fi
 
       # 执行打包命令
