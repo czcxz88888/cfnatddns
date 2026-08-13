@@ -421,7 +421,7 @@ fun DnsRuleCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = rule.lastSyncStatus,
+                        text = if (isSuccess) "Sync completed successfully" else rule.lastSyncStatus,
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = statusColor,
                             fontWeight = FontWeight.Medium
@@ -433,7 +433,7 @@ fun DnsRuleCard(
                             SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(rule.lastSyncTime))
                         }
                         Text(
-                            text = "Last sync: $formattedTime${if (rule.lastSyncedIp.isNotBlank()) " ($rule.lastSyncedIp)" else ""}",
+                            text = "Last sync: $formattedTime",
                             style = MaterialTheme.typography.labelSmall.copy(color = MutedText)
                         )
                     }
