@@ -20,7 +20,6 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
@@ -29,7 +28,7 @@ jobs:
       run: touch .env
 
     - name: Build Debug APK
-      run: gradle assembleDebug --stacktrace
+      run: gradle assembleDebug --stacktrace --no-daemon --no-configuration-cache
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
