@@ -38,7 +38,7 @@
 
 1. 将项目 Clone 到本地环境：
    ```bash
-   git clone https://github.com/onlyoyrao-cyber/cfnatddns.git
+   git clone https://github.com/onlyoyrao999/cfnatddns.git
    ```
 2. 确保您的环境已安装 Java 21。
 3. 使用 Android Studio 打开项目。
