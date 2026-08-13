@@ -429,6 +429,23 @@ fun ScanConfigCard(
                 )
             }
 
+            // Target IP Count
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Target IP Count", style = MaterialTheme.typography.bodyMedium.copy(color = OffWhiteText))
+                    Text("${scanConfig.ipCount} IPs", style = MaterialTheme.typography.bodyMedium.copy(color = CfOrangePrimary, fontWeight = FontWeight.Bold))
+                }
+                Slider(
+                    value = scanConfig.ipCount.toFloat(),
+                    onValueChange = { onConfigChange(scanConfig.copy(ipCount = it.toInt())) },
+                    valueRange = 10f..3000f,
+                    colors = SliderDefaults.colors(thumbColor = CfOrangePrimary, activeTrackColor = CfOrangePrimary)
+                )
+            }
+
             // Custom Datacenter Filter
             OutlinedTextField(
                 value = scanConfig.coloFilter,

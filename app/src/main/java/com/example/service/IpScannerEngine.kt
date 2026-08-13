@@ -71,9 +71,9 @@ class IpScannerEngine {
         )
 
         val candidateIps = if (isIpv6) {
-            IpGenerator.getRandomIPv6s(cidrs, count = 400)
+            IpGenerator.getRandomIPv6s(cidrs, count = config.ipCount)
         } else {
-            IpGenerator.getRandomIPv4s(cidrs, count = 500)
+            IpGenerator.getRandomIPv4s(cidrs, count = config.ipCount)
         }
 
         if (candidateIps.isEmpty()) {

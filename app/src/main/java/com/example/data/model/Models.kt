@@ -42,7 +42,7 @@ data class ScanConfig(
     val domain: String = "cloudflaremirrors.com/debian",
     val expectedCode: Int = 200,
     val random: Boolean = true,
-    val ipCount: Int = 20,
+    val ipCount: Int = 1000,
     val useTls: Boolean = true
 )
 
