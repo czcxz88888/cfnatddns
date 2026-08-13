@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.cfipscanner.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "1.26"
+    versionCode = 5
+    versionName = "1.27"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -54,7 +54,7 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug { signingConfig = signingConfigs.getByName("release") }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
