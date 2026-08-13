@@ -211,17 +211,30 @@ class IpScannerEngine {
     }
 
     private fun detectColoCode(ip: String, port: Int, domain: String): String? {
+        val targetHost = domain.substringBefore("/")
         val protocol = if (port == 443) "https" else "http"
-        val traceUrl = "$protocol://$ip/cdn-cgi/trace"
+        val traceUrl = "$protocol://$targetHost/cdn-cgi/trace"
+
+        // Use custom DNS to force the domain to resolve to our specific IP.
+        // This solves the SNI issue for HTTPS perfectly without disabling TLS.
+        val customClient = httpTraceClient.newBuilder()
+            .dns(object : okhttp3.Dns {
+                override fun lookup(hostname: String): List<java.net.InetAddress> {
+                    if (hostname == targetHost) {
+                        return listOf(java.net.InetAddress.getByName(ip))
+                    }
+                    return okhttp3.Dns.SYSTEM.lookup(hostname)
+                }
+            })
+            .build()
 
         return try {
             val request = Request.Builder()
                 .url(traceUrl)
-                .header("Host", domain.substringBefore("/"))
                 .header("User-Agent", "CloudflareScanner/1.0")
                 .build()
 
-            httpTraceClient.newCall(request).execute().use { response ->
+            customClient.newCall(request).execute().use { response ->
                 val body = response.body?.string() ?: ""
                 if (body.contains("colo=")) {
                     body.lines().forEach { line ->

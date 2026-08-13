@@ -144,6 +144,18 @@ fun ScannerScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        val displayResults = remember(scanProgress.results, scanConfig.coloFilter) {
+            val uniqueResults = scanProgress.results.distinctBy { it.ip }
+            if (scanConfig.coloFilter.isNotBlank()) {
+                val filters = scanConfig.coloFilter.split(",").map { it.trim().uppercase() }
+                uniqueResults.filter { ip ->
+                    filters.any { filter -> ip.dataCenter.equals(filter, ignoreCase = true) }
+                }
+            } else {
+                uniqueResults
+            }
+        }
+
         // Results Section Header
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -151,17 +163,17 @@ fun ScannerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Scanned Valid IPs (${scanProgress.results.size})",
+                text = "Scanned Valid IPs (${displayResults.size})",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = OffWhiteText
                 )
             )
 
-            if (scanProgress.results.isNotEmpty()) {
+            if (displayResults.isNotEmpty()) {
                 IconButton(
                     onClick = {
-                        val ips = scanProgress.results.map { it.ip }
+                        val ips = displayResults.map { it.ip }
                         viewModel.copyIpsToClipboard(context, ips, "Scanned Cloudflare IPs")
                     },
                     modifier = Modifier.testTag("copy_all_ips_button")
@@ -178,7 +190,7 @@ fun ScannerScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Results List
-        if (scanProgress.results.isEmpty() && !scanProgress.isScanning) {
+        if (displayResults.isEmpty() && !scanProgress.isScanning) {
             EmptyScannerState(onStartScan = { viewModel.startScan() })
         } else {
             LazyColumn(
@@ -186,7 +198,7 @@ fun ScannerScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(
-                    items = scanProgress.results.distinctBy { it.ip },
+                    items = displayResults,
                     key = { it.ip }
                 ) { ip ->
                     ScannedIpCard(
@@ -495,15 +507,15 @@ fun ScannedIpCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = scannedIp.ip,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = OffWhiteText
-                        )
+                Text(
+                    text = scannedIp.ip,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = OffWhiteText
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
@@ -512,20 +524,18 @@ fun ScannedIpCard(
                     ) {
                         Text(
                             text = scannedIp.dataCenter,
-                            style = MaterialTheme.typography.labelSmall.copy(
+                            style = MaterialTheme.typography.labelMedium.copy(
                                 color = CfOrangePrimary,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.ExtraBold
                             )
                         )
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "${scannedIp.city.ifEmpty { "Cloudflare Edge" }} • ${scannedIp.region}",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MutedText)
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "${scannedIp.city.ifEmpty { "Cloudflare Edge" }} • ${scannedIp.region}",
-                    style = MaterialTheme.typography.bodySmall.copy(color = MutedText)
-                )
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
