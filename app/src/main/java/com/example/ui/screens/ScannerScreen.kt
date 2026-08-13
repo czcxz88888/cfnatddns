@@ -499,11 +499,11 @@ fun QuickFilterChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(presets) { colo ->
-            val isSelected = (colo == "ALL" && scanConfig.coloFilter.isBlank()) ||
-                    scanConfig.coloFilter.equals(colo, ignoreCase = true)
+            val isSelected = scanConfig.coloFilter.equals(colo, ignoreCase = true) || 
+                             (colo == "ALL" && scanConfig.coloFilter.isBlank())
             FilterChip(
                 selected = isSelected,
-                onClick = { onColoSelect(if (colo == "ALL") "" else colo) },
+                onClick = { onColoSelect(colo) },
                 label = { Text(text = colo, fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = CfOrangePrimary,

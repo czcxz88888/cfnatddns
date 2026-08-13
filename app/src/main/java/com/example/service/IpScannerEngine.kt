@@ -19,6 +19,7 @@ import okhttp3.Request
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -104,6 +105,10 @@ class IpScannerEngine {
             config.coloFilter.split(",").map { it.trim().uppercase() }.filter { it.isNotEmpty() }
         } else emptyList()
 
+        val isAllRegions = filters.isEmpty() || filters.contains("ALL")
+        val maxPerColo = 10
+        val coloCounts = ConcurrentHashMap<String, AtomicInteger>()
+
         coroutineScope {
             candidateIps.forEach { ipAddr ->
                 if (isCancelled) return@forEach
@@ -125,15 +130,22 @@ class IpScannerEngine {
 
                         if (scannedIp != null && scannedIp.isValid) {
                             var matchesFilter = true
-                            if (filters.isNotEmpty()) {
+                            if (!isAllRegions && filters.isNotEmpty()) {
                                 matchesFilter = filters.any { filter ->
                                     scannedIp.dataCenter.equals(filter, ignoreCase = true)
                                 }
                             }
 
                             if (matchesFilter) {
-                                validCounter.incrementAndGet()
-                                resultsQueue.add(scannedIp)
+                                val colo = scannedIp.dataCenter
+                                val coloCount = coloCounts.getOrPut(colo) { AtomicInteger(0) }
+                                
+                                // Limit to maxPerColo if in ALL mode
+                                if (!isAllRegions || coloCount.get() < maxPerColo) {
+                                    coloCount.incrementAndGet()
+                                    validCounter.incrementAndGet()
+                                    resultsQueue.add(scannedIp)
+                                }
                             }
                         }
 
