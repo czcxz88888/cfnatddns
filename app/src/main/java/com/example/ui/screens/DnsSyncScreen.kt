@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,6 +79,7 @@ fun DnsSyncScreen(
     viewModel: MainViewModel,
     dnsRules: List<CfDnsRuleEntity>
 ) {
+    val isAutoSyncEnabled by viewModel.isAutoSyncEnabled.collectAsState()
     var showRuleDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<CfDnsRuleEntity?>(null) }
 
@@ -154,9 +156,35 @@ fun DnsSyncScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Set up target domains to automatically or manually sync scanned Cloudflare IPs according to node/airport filters (e.g., HKG, SJC, LAX).",
+                        text = "Set up target domains to automatically or manually sync scanned Cloudflare IPs according to node/airport filters (e.g., HKG, SJC, LAX). ",
                         style = MaterialTheme.typography.bodySmall.copy(color = MutedText)
                     )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Auto-Sync after Scan",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = OffWhiteText
+                            )
+                        )
+                        androidx.compose.material3.Switch(
+                            checked = isAutoSyncEnabled,
+                            onCheckedChange = { viewModel.setAutoSyncEnabled(it) },
+                            colors = androidx.compose.material3.SwitchDefaults.colors(
+                                checkedThumbColor = CfOrangePrimary,
+                                checkedTrackColor = CfOrangePrimary.copy(alpha = 0.5f),
+                                uncheckedThumbColor = MutedText,
+                                uncheckedTrackColor = DarkSlateSurface
+                            )
+                        )
+                    }
                 }
             }
 
@@ -628,3 +656,4 @@ private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = OffWhiteText,
     unfocusedTextColor = OffWhiteText
 )
+ 

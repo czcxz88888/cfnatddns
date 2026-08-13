@@ -64,6 +64,13 @@ class MainViewModel(
     private val _scanConfig = MutableStateFlow(ScanConfig())
     val scanConfig: StateFlow<ScanConfig> = _scanConfig.asStateFlow()
 
+    private val _isAutoSyncEnabled = MutableStateFlow(true)
+    val isAutoSyncEnabled: StateFlow<Boolean> = _isAutoSyncEnabled.asStateFlow()
+
+    fun setAutoSyncEnabled(enabled: Boolean) {
+        _isAutoSyncEnabled.value = enabled
+    }
+
     fun updateScanConfig(config: ScanConfig) {
         _scanConfig.value = config
     }
@@ -105,7 +112,9 @@ class MainViewModel(
                 repository.saveIps(entities)
 
                 // Auto-sync enabled Cloudflare DNS rules
-                autoSyncEnabledDnsRules(state.results)
+                if (_isAutoSyncEnabled.value) {
+                    autoSyncEnabledDnsRules(state.results)
+                }
             }
         }
     }
@@ -205,6 +214,13 @@ class MainViewModel(
                         )
                     }
                 }
+            } else {
+                repository.updateDnsRuleSyncResult(
+                    rule.id,
+                    "Error: No matching IP found for filter '${rule.coloFilter.ifBlank { "ALL" }}' during auto-sync",
+                    "",
+                    System.currentTimeMillis()
+                )
             }
         }
     }
