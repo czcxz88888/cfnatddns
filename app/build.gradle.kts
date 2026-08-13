@@ -34,11 +34,10 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD") ?: "cfipscanner"
-      keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-      keyPassword = System.getenv("KEY_PASSWORD") ?: "cfipscanner"
+      storeFile = file("${rootDir}/release.keystore")
+      storePassword = "cfipscanner"
+      keyAlias = "myapp"
+      keyPassword = "cfipscanner"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
