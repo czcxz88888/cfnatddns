@@ -230,7 +230,7 @@ class MainViewModel(
         val resultList = mutableListOf<String>()
         val maxLimit = limit.coerceAtLeast(1)
 
-        // 1. Try matching in current scan results
+        // 1. Try matching in current scan results FIRST
         if (currentScanResults.isNotEmpty()) {
             val scanMatches = if (filter.isBlank() || filter.equals("ALL", ignoreCase = true)) {
                 currentScanResults
@@ -244,12 +244,15 @@ class MainViewModel(
             for (match in scanMatches) {
                 if (!resultList.contains(match.ip)) {
                     resultList.add(match.ip)
-                    if (resultList.size >= maxLimit) return resultList
+                    if (resultList.size >= maxLimit) break
                 }
             }
+            // If we have current scan results, we strictly use them.
+            // We do NOT fallback to old saved IPs if the current scan didn't find enough.
+            return resultList
         }
 
-        // 2. Fallback to saved IPs in Room DB
+        // 2. Fallback to saved IPs in Room DB ONLY if no scan has been performed yet
         val saved = savedIps.value
         if (saved.isNotEmpty()) {
             val savedMatches = if (filter.isBlank() || filter.equals("ALL", ignoreCase = true)) {
@@ -269,7 +272,6 @@ class MainViewModel(
             }
         }
 
-        // The filter should be strictly respected. We should NOT fallback to unrelated IPs.
         return resultList
     }
 
