@@ -137,6 +137,7 @@ fun ScannerScreen(
         // Quick Preset Filter Bar
         QuickFilterChips(
             scanConfig = scanConfig,
+            scanProgress = scanProgress,
             onColoSelect = { colo ->
                 viewModel.updateScanConfig(scanConfig.copy(coloFilter = colo))
             }
@@ -460,9 +461,19 @@ fun ScanConfigCard(
 @Composable
 fun QuickFilterChips(
     scanConfig: ScanConfig,
+    scanProgress: ScanProgressState,
     onColoSelect: (String) -> Unit
 ) {
-    val presets = listOf("ALL", "HKG", "SJC", "LAX", "NRT", "SIN", "TPE", "FRA", "LHR")
+    val dynamicColos = remember(scanProgress.results) {
+        scanProgress.results.map { it.dataCenter.uppercase() }.distinct().sorted()
+    }
+    
+    val presets = remember(dynamicColos) {
+        val defaultPresets = listOf("HKG", "SJC", "LAX", "NRT", "SIN", "TPE", "FRA", "LHR")
+        val combined = (defaultPresets + dynamicColos).distinct()
+        listOf("ALL") + combined
+    }
+
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
