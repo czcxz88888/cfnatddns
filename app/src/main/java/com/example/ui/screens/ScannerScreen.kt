@@ -1,0 +1,608 @@
+package com.example.ui.screens
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Router
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.model.ScanConfig
+import com.example.data.model.ScannedIp
+import com.example.service.ScanProgressState
+import com.example.ui.MainViewModel
+import com.example.ui.theme.CfOrangeDark
+import com.example.ui.theme.CfOrangePrimary
+import com.example.ui.theme.CfOrangeSecondary
+import com.example.ui.theme.DarkSlateCard
+import com.example.ui.theme.MutedText
+import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.OffWhiteText
+import com.example.ui.theme.PingGreenFast
+import com.example.ui.theme.PingRedSlow
+import com.example.ui.theme.PingYellowMedium
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScannerScreen(
+    viewModel: MainViewModel,
+    scanProgress: ScanProgressState,
+    scanConfig: ScanConfig
+) {
+    val context = LocalContext.current
+    var showSettings by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        // Hero Scan Banner
+        HeroScanBanner(
+            scanProgress = scanProgress,
+            onStartScan = { viewModel.startScan() },
+            onStopScan = { viewModel.stopScan() },
+            onToggleSettings = { showSettings = !showSettings },
+            showSettings = showSettings
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Expandable Configuration Card
+        AnimatedVisibility(
+            visible = showSettings,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            ScanConfigCard(
+                scanConfig = scanConfig,
+                onConfigChange = { viewModel.updateScanConfig(it) }
+            )
+        }
+
+        if (showSettings) {
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Live Scanning Progress Indicator
+        if (scanProgress.isScanning || scanProgress.scannedCount > 0) {
+            ScanProgressBar(scanProgress = scanProgress)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Quick Preset Filter Bar
+        QuickFilterChips(
+            scanConfig = scanConfig,
+            onColoSelect = { colo ->
+                viewModel.updateScanConfig(scanConfig.copy(coloFilter = colo))
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Results Section Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Scanned Valid IPs (${scanProgress.results.size})",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = OffWhiteText
+                )
+            )
+
+            if (scanProgress.results.isNotEmpty()) {
+                IconButton(
+                    onClick = {
+                        val ips = scanProgress.results.map { it.ip }
+                        viewModel.copyIpsToClipboard(context, ips, "Scanned Cloudflare IPs")
+                    },
+                    modifier = Modifier.testTag("copy_all_ips_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy all IPs",
+                        tint = CfOrangeSecondary
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Results List
+        if (scanProgress.results.isEmpty() && !scanProgress.isScanning) {
+            EmptyScannerState(onStartScan = { viewModel.startScan() })
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(
+                    items = scanProgress.results.distinctBy { it.ip },
+                    key = { it.ip }
+                ) { ip ->
+                    ScannedIpCard(
+                        scannedIp = ip,
+                        onSetAsProxy = { viewModel.switchProxyTarget(ip) },
+                        onSave = { viewModel.saveSingleIp(ip) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HeroScanBanner(
+    scanProgress: ScanProgressState,
+    onStartScan: () -> Unit,
+    onStopScan: () -> Unit,
+    onToggleSettings: () -> Unit,
+    showSettings: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(CfOrangePrimary.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = "Scan Icon",
+                            tint = CfOrangePrimary,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Cloudflare IP Engine",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = OffWhiteText
+                            )
+                        )
+                        Text(
+                            text = scanProgress.statusMessage,
+                            style = MaterialTheme.typography.bodySmall.copy(color = MutedText),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onToggleSettings,
+                    modifier = Modifier.testTag("toggle_settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = if (showSettings) CfOrangePrimary else MutedText
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (scanProgress.isScanning) onStopScan() else onStartScan()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("start_stop_scan_button"),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (scanProgress.isScanning) PingRedSlow else CfOrangePrimary
+                )
+            ) {
+                if (scanProgress.isScanning) {
+                    Icon(imageVector = Icons.Default.Stop, contentDescription = "Stop")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "STOP SCANNING", fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Start")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "START HIGH-SPEED SCAN", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ScanProgressBar(scanProgress: ScanProgressState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Progress: ${(scanProgress.progressPercentage * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelMedium.copy(color = OffWhiteText)
+                )
+                Text(
+                    text = "${scanProgress.scannedCount} / ${scanProgress.totalCount} IPs",
+                    style = MaterialTheme.typography.labelMedium.copy(color = CfOrangeSecondary)
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { scanProgress.progressPercentage.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = CfOrangePrimary,
+                trackColor = DarkSlateCard
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScanConfigCard(
+    scanConfig: ScanConfig,
+    onConfigChange: (ScanConfig) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Scanner Options",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = CfOrangeSecondary
+                )
+            )
+
+            // IPv4 vs IPv6 Segmented Button
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("IP Version", style = MaterialTheme.typography.bodyMedium.copy(color = OffWhiteText))
+                SingleChoiceSegmentedButtonRow {
+                    SegmentedButton(
+                        selected = scanConfig.ipType == "4",
+                        onClick = { onConfigChange(scanConfig.copy(ipType = "4")) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) {
+                        Text("IPv4")
+                    }
+                    SegmentedButton(
+                        selected = scanConfig.ipType == "6",
+                        onClick = { onConfigChange(scanConfig.copy(ipType = "6")) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) {
+                        Text("IPv6")
+                    }
+                }
+            }
+
+            // Concurrency Threads
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Parallel Threads", style = MaterialTheme.typography.bodyMedium.copy(color = OffWhiteText))
+                    Text("${scanConfig.maxThreads}", style = MaterialTheme.typography.bodyMedium.copy(color = CfOrangePrimary, fontWeight = FontWeight.Bold))
+                }
+                Slider(
+                    value = scanConfig.maxThreads.toFloat(),
+                    onValueChange = { onConfigChange(scanConfig.copy(maxThreads = it.toInt())) },
+                    valueRange = 10f..200f,
+                    colors = SliderDefaults.colors(thumbColor = CfOrangePrimary, activeTrackColor = CfOrangePrimary)
+                )
+            }
+
+            // Max Delay Threshold
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Max Latency Cutoff", style = MaterialTheme.typography.bodyMedium.copy(color = OffWhiteText))
+                    Text("${scanConfig.delayMs} ms", style = MaterialTheme.typography.bodyMedium.copy(color = CfOrangePrimary, fontWeight = FontWeight.Bold))
+                }
+                Slider(
+                    value = scanConfig.delayMs.toFloat(),
+                    onValueChange = { onConfigChange(scanConfig.copy(delayMs = it.toInt())) },
+                    valueRange = 100f..1000f,
+                    colors = SliderDefaults.colors(thumbColor = CfOrangePrimary, activeTrackColor = CfOrangePrimary)
+                )
+            }
+
+            // Custom Datacenter Filter
+            OutlinedTextField(
+                value = scanConfig.coloFilter,
+                onValueChange = { onConfigChange(scanConfig.copy(coloFilter = it)) },
+                label = { Text("Colo Datacenter Filter (e.g. HKG,SJC,LAX)") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("colo_filter_input"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CfOrangePrimary,
+                    unfocusedBorderColor = MutedText
+                )
+            )
+
+            // Custom Target Domain
+            OutlinedTextField(
+                value = scanConfig.domain,
+                onValueChange = { onConfigChange(scanConfig.copy(domain = it)) },
+                label = { Text("Cloudflare Health Check Domain") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("domain_input"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CfOrangePrimary,
+                    unfocusedBorderColor = MutedText
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun QuickFilterChips(
+    scanConfig: ScanConfig,
+    onColoSelect: (String) -> Unit
+) {
+    val presets = listOf("ALL", "HKG", "SJC", "LAX", "NRT", "SIN", "TPE", "FRA", "LHR")
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(presets) { colo ->
+            val isSelected = (colo == "ALL" && scanConfig.coloFilter.isBlank()) ||
+                    scanConfig.coloFilter.equals(colo, ignoreCase = true)
+            FilterChip(
+                selected = isSelected,
+                onClick = { onColoSelect(if (colo == "ALL") "" else colo) },
+                label = { Text(text = colo, fontSize = 12.sp) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = CfOrangePrimary,
+                    selectedLabelColor = Color.White
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun ScannedIpCard(
+    scannedIp: ScannedIp,
+    onSetAsProxy: () -> Unit,
+    onSave: () -> Unit
+) {
+    val latencyColor = when {
+        scannedIp.latencyMs < 100 -> PingGreenFast
+        scannedIp.latencyMs < 220 -> PingYellowMedium
+        else -> PingRedSlow
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = scannedIp.ip,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = OffWhiteText
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(CfOrangePrimary.copy(alpha = 0.2f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = scannedIp.dataCenter,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = CfOrangePrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "${scannedIp.city.ifEmpty { "Cloudflare Edge" }} • ${scannedIp.region}",
+                    style = MaterialTheme.typography.bodySmall.copy(color = MutedText)
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Latency Badge
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(latencyColor.copy(alpha = 0.2f))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "${scannedIp.latencyMs} ms",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = latencyColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Set as Proxy Target Button
+                IconButton(
+                    onClick = onSetAsProxy,
+                    modifier = Modifier.testTag("set_proxy_target_button_${scannedIp.ip}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Router,
+                        contentDescription = "Set as Proxy",
+                        tint = NeonCyan
+                    )
+                }
+
+                // Favorite Button
+                IconButton(
+                    onClick = onSave,
+                    modifier = Modifier.testTag("save_ip_button_${scannedIp.ip}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FavoriteBorder,
+                        contentDescription = "Save IP",
+                        tint = CfOrangeSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyScannerState(onStartScan: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Bolt,
+            contentDescription = "Empty Scanner",
+            modifier = Modifier.size(64.dp),
+            tint = MutedText
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "No Cloudflare IPs Scanned Yet",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = OffWhiteText
+            )
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Tap 'Start High-Speed Scan' to test Cloudflare edge node latencies across global datacenters.",
+            style = MaterialTheme.typography.bodySmall.copy(color = MutedText),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
+}

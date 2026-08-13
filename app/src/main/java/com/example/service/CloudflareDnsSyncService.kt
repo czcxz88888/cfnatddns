@@ -1,0 +1,174 @@
+package com.example.service
+
+import com.example.data.model.CfDnsRuleEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.net.InetAddress
+import java.util.concurrent.TimeUnit
+
+class CloudflareDnsSyncService {
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
+
+    private fun getIpType(ip: String): String? {
+        return try {
+            val address = InetAddress.getByName(ip)
+            if (address.address.size == 4) "A" else "AAAA"
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun syncDnsRecord(rule: CfDnsRuleEntity, targetIp: String): SyncResult {
+        return syncDnsRecords(rule, listOf(targetIp))
+    }
+
+    suspend fun syncDnsRecords(rule: CfDnsRuleEntity, targetIps: List<String>): SyncResult = withContext(Dispatchers.IO) {
+        val desiredIps = targetIps.distinct().take(rule.maxIpCount.coerceAtLeast(1))
+        if (desiredIps.isEmpty()) {
+            return@withContext SyncResult.Error("No target IP addresses provided for sync")
+        }
+
+        if (rule.cfZoneId.isBlank() || rule.cfRecordName.isBlank() || rule.cfApiKey.isBlank()) {
+            return@withContext SyncResult.Error("Missing Zone ID, Record Name, or API Key")
+        }
+
+        val baseUrl = "https://api.cloudflare.com/client/v4/zones/${rule.cfZoneId.trim()}/dns_records"
+
+        val requestBuilder = Request.Builder()
+            .addHeader("Content-Type", "application/json")
+
+        if (rule.cfEmail.isNotBlank()) {
+            requestBuilder.addHeader("X-Auth-Email", rule.cfEmail.trim())
+            requestBuilder.addHeader("X-Auth-Key", rule.cfApiKey.trim())
+        } else {
+            requestBuilder.addHeader("Authorization", "Bearer ${rule.cfApiKey.trim()}")
+        }
+
+        try {
+            // 1. Fetch existing DNS records for this record name
+            val getUrl = "$baseUrl?name=${rule.cfRecordName.trim()}"
+            val getRequest = requestBuilder.url(getUrl).get().build()
+            var isGetSuccessful = false
+            var getStatusCode = 0
+            var getResponseBody = ""
+
+            httpClient.newCall(getRequest).execute().use { getResponse ->
+                isGetSuccessful = getResponse.isSuccessful
+                getStatusCode = getResponse.code
+                getResponseBody = getResponse.body?.string() ?: ""
+            }
+
+            if (!isGetSuccessful || getResponseBody.isBlank()) {
+                return@withContext SyncResult.Error("Failed to fetch DNS records (HTTP $getStatusCode)")
+            }
+
+            val getJson = JSONObject(getResponseBody)
+            if (!getJson.optBoolean("success", false)) {
+                val errors = getJson.optJSONArray("errors")?.toString() ?: "Unknown error"
+                return@withContext SyncResult.Error("Cloudflare API error: $errors")
+            }
+
+            val recordsArray = getJson.optJSONArray("result")
+            val desiredSet = desiredIps.toSet()
+            val existingMatchingIps = mutableSetOf<String>()
+            val recordsToDelete = mutableListOf<String>()
+
+            if (recordsArray != null) {
+                for (i in 0 until recordsArray.length()) {
+                    val record = recordsArray.getJSONObject(i)
+                    val rType = record.optString("type")
+                    val rContent = record.optString("content")
+                    val rId = record.optString("id")
+
+                    // Match A or AAAA records
+                    if (rType.equals("A", ignoreCase = true) || rType.equals("AAAA", ignoreCase = true)) {
+                        if (desiredSet.contains(rContent) && !existingMatchingIps.contains(rContent)) {
+                            // Valid matching record!
+                            existingMatchingIps.add(rContent)
+                        } else {
+                            // Extra record or old IP not in desired set -> mark for deletion
+                            recordsToDelete.add(rId)
+                        }
+                    }
+                }
+            }
+
+            // 2. Delete extra / outdated records
+            var deletedCount = 0
+            for (rId in recordsToDelete) {
+                val delUrl = "$baseUrl/$rId"
+                val delRequest = requestBuilder.url(delUrl).delete().build()
+                try {
+                    httpClient.newCall(delRequest).execute().use { delResp ->
+                        if (delResp.isSuccessful) {
+                            deletedCount++
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore individual deletion errors
+                }
+            }
+
+            // 3. Create missing desired IPs
+            val ipsToCreate = desiredIps.filter { !existingMatchingIps.contains(it) }
+            var createdCount = 0
+
+            for (ip in ipsToCreate) {
+                val recordType = getIpType(ip) ?: "A"
+                val postData = JSONObject().apply {
+                    put("type", recordType)
+                    put("name", rule.cfRecordName.trim())
+                    put("content", ip.trim())
+                    put("ttl", 1)
+                    put("proxied", false)
+                }
+
+                val postRequest = requestBuilder
+                    .url(baseUrl)
+                    .post(postData.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+
+                try {
+                    httpClient.newCall(postRequest).execute().use { postResponse ->
+                        val postResponseBody = postResponse.body?.string() ?: ""
+                        if (postResponse.isSuccessful) {
+                            val postJson = JSONObject(postResponseBody)
+                            if (postJson.optBoolean("success", false)) {
+                                createdCount++
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore individual creation errors
+                }
+            }
+
+            val actions = mutableListOf<String>()
+            if (createdCount > 0) actions.add("Added $createdCount")
+            if (deletedCount > 0) actions.add("Removed $deletedCount extra")
+            if (existingMatchingIps.isNotEmpty()) actions.add("${existingMatchingIps.size} already matching")
+
+            val actionSummary = if (actions.isNotEmpty()) " (${actions.joinToString(", ")})" else ""
+            val ipListStr = desiredIps.joinToString(", ")
+
+            return@withContext SyncResult.Success("Synced ${desiredIps.size} IP(s) [$ipListStr] -> ${rule.cfRecordName}$actionSummary")
+
+        } catch (e: Exception) {
+            return@withContext SyncResult.Error("Sync error: ${e.localizedMessage ?: "Network exception"}")
+        }
+    }
+}
+
+sealed class SyncResult {
+    data class Success(val message: String) : SyncResult()
+    data class Error(val message: String) : SyncResult()
+}

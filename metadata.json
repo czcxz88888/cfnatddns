@@ -1,0 +1,6 @@
+{
+  "name": "Cloudflare IP Scanner & Proxy",
+  "description": "High-performance Cloudflare IP scanner, latency speed tester, edge datacenter detector, and local TCP proxy relay load balancer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
