@@ -253,26 +253,7 @@ class MainViewModel(
             }
         }
 
-        // 3. Fallback to overall best scan results if filter produced fewer than limit
-        if (resultList.size < maxLimit && currentScanResults.isNotEmpty()) {
-            for (match in currentScanResults) {
-                if (!resultList.contains(match.ip)) {
-                    resultList.add(match.ip)
-                    if (resultList.size >= maxLimit) return resultList
-                }
-            }
-        }
-
-        // 4. Fallback to overall best saved IPs if still fewer
-        if (resultList.size < maxLimit && saved.isNotEmpty()) {
-            for (match in saved) {
-                if (!resultList.contains(match.ip)) {
-                    resultList.add(match.ip)
-                    if (resultList.size >= maxLimit) return resultList
-                }
-            }
-        }
-
+        // The filter should be strictly respected. We should NOT fallback to unrelated IPs.
         return resultList
     }
 
