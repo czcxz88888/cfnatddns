@@ -128,7 +128,7 @@ class IpScannerEngine {
 
                         val currentScanned = scannedCounter.incrementAndGet()
 
-                        if (scannedIp != null && scannedIp.isValid) {
+                        if (scannedIp != null && scannedIp.isValid && !scannedIp.dataCenter.equals("CF", ignoreCase = true)) {
                             var matchesFilter = true
                             if (!isAllRegions && filters.isNotEmpty()) {
                                 matchesFilter = filters.any { filter ->
