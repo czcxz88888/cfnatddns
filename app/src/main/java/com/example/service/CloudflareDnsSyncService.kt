@@ -106,23 +106,37 @@ class CloudflareDnsSyncService {
             val deleteErrors = mutableListOf<String>()
             for (rId in recordsToDelete) {
                 val delUrl = "$baseUrl/$rId"
-                val delRequest = Request.Builder().url(delUrl).delete(null).apply { applyAuth(this) }.build()
+                val delRequest = Request.Builder()
+                    .url(delUrl)
+                    .delete()
+                    .header("Content-Type", "application/json")
+                    .apply { applyAuth(this) }
+                    .build()
+                
                 try {
                     httpClient.newCall(delRequest).execute().use { delResp ->
+                        val respBody = delResp.body?.string() ?: ""
                         if (delResp.isSuccessful) {
-                            deletedCount++
+                            val json = JSONObject(respBody)
+                            if (json.optBoolean("success", false)) {
+                                deletedCount++
+                            } else {
+                                val err = json.optJSONArray("errors")?.toString() ?: "Unknown API Error"
+                                deleteErrors.add("CF Error: $err")
+                            }
                         } else {
-                            deleteErrors.add(delResp.body?.string() ?: "Unknown error HTTP ${delResp.code}")
+                            deleteErrors.add("HTTP ${delResp.code}")
                         }
                     }
                 } catch (e: Exception) {
-                    deleteErrors.add(e.message ?: "Exception")
+                    deleteErrors.add(e.message?.take(30) ?: "Exception")
                 }
             }
 
             // 3. Create missing desired IPs
             val ipsToCreate = desiredIps.filter { !existingMatchingIps.contains(it) }
             var createdCount = 0
+            val createErrors = mutableListOf<String>()
 
             for (ip in ipsToCreate) {
                 val recordType = getIpType(ip) ?: "A"
@@ -136,6 +150,7 @@ class CloudflareDnsSyncService {
 
                 val postRequest = Request.Builder()
                     .url(baseUrl)
+                    .header("Content-Type", "application/json")
                     .apply { applyAuth(this) }
                     .post(postData.toString().toRequestBody("application/json".toMediaType()))
                     .build()
@@ -147,19 +162,25 @@ class CloudflareDnsSyncService {
                             val postJson = JSONObject(postResponseBody)
                             if (postJson.optBoolean("success", false)) {
                                 createdCount++
+                            } else {
+                                val err = postJson.optJSONArray("errors")?.toString() ?: "Unknown API Error"
+                                createErrors.add("CF Error: $err")
                             }
+                        } else {
+                            createErrors.add("HTTP ${postResponse.code}")
                         }
                     }
                 } catch (e: Exception) {
-                    // Ignore individual creation errors
+                    createErrors.add(e.message?.take(30) ?: "Exception")
                 }
             }
 
             val actions = mutableListOf<String>()
             if (createdCount > 0) actions.add("Added $createdCount")
             if (deletedCount > 0) actions.add("Removed $deletedCount extra")
-            if (deleteErrors.isNotEmpty()) actions.add("Del Errors: ${deleteErrors.joinToString(" | ")}")
-            if (existingMatchingIps.isNotEmpty()) actions.add("${existingMatchingIps.size} already matching")
+            if (createErrors.isNotEmpty()) actions.add("Add Err: ${createErrors.joinToString("|")}")
+            if (deleteErrors.isNotEmpty()) actions.add("Del Err: ${deleteErrors.joinToString("|")}")
+            if (existingMatchingIps.isNotEmpty()) actions.add("${existingMatchingIps.size} matched")
 
             val actionSummary = if (actions.isNotEmpty()) " (${actions.joinToString(", ")})" else ""
             val ipListStr = desiredIps.joinToString(", ")
