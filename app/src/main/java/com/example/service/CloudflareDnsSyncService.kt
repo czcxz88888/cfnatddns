@@ -43,20 +43,19 @@ class CloudflareDnsSyncService {
 
         val baseUrl = "https://api.cloudflare.com/client/v4/zones/${rule.cfZoneId.trim()}/dns_records"
 
-        val requestBuilder = Request.Builder()
-            .addHeader("Content-Type", "application/json")
-
-        if (rule.cfEmail.isNotBlank()) {
-            requestBuilder.addHeader("X-Auth-Email", rule.cfEmail.trim())
-            requestBuilder.addHeader("X-Auth-Key", rule.cfApiKey.trim())
-        } else {
-            requestBuilder.addHeader("Authorization", "Bearer ${rule.cfApiKey.trim()}")
+        fun applyAuth(builder: Request.Builder) {
+            if (rule.cfEmail.isNotBlank()) {
+                builder.addHeader("X-Auth-Email", rule.cfEmail.trim())
+                builder.addHeader("X-Auth-Key", rule.cfApiKey.trim())
+            } else {
+                builder.addHeader("Authorization", "Bearer ${rule.cfApiKey.trim()}")
+            }
         }
 
         try {
             // 1. Fetch existing DNS records for this record name
-            val getUrl = "$baseUrl?name=${rule.cfRecordName.trim()}"
-            val getRequest = requestBuilder.url(getUrl).get().build()
+            val getUrl = "$baseUrl?name=${rule.cfRecordName.trim()}&per_page=100"
+            val getRequest = Request.Builder().url(getUrl).get().apply { applyAuth(this) }.build()
             var isGetSuccessful = false
             var getStatusCode = 0
             var getResponseBody = ""
@@ -104,17 +103,20 @@ class CloudflareDnsSyncService {
 
             // 2. Delete extra / outdated records
             var deletedCount = 0
+            val deleteErrors = mutableListOf<String>()
             for (rId in recordsToDelete) {
                 val delUrl = "$baseUrl/$rId"
-                val delRequest = requestBuilder.url(delUrl).delete().build()
+                val delRequest = Request.Builder().url(delUrl).delete(null).apply { applyAuth(this) }.build()
                 try {
                     httpClient.newCall(delRequest).execute().use { delResp ->
                         if (delResp.isSuccessful) {
                             deletedCount++
+                        } else {
+                            deleteErrors.add(delResp.body?.string() ?: "Unknown error HTTP ${delResp.code}")
                         }
                     }
                 } catch (e: Exception) {
-                    // Ignore individual deletion errors
+                    deleteErrors.add(e.message ?: "Exception")
                 }
             }
 
@@ -132,8 +134,9 @@ class CloudflareDnsSyncService {
                     put("proxied", false)
                 }
 
-                val postRequest = requestBuilder
+                val postRequest = Request.Builder()
                     .url(baseUrl)
+                    .apply { applyAuth(this) }
                     .post(postData.toString().toRequestBody("application/json".toMediaType()))
                     .build()
 
@@ -155,6 +158,7 @@ class CloudflareDnsSyncService {
             val actions = mutableListOf<String>()
             if (createdCount > 0) actions.add("Added $createdCount")
             if (deletedCount > 0) actions.add("Removed $deletedCount extra")
+            if (deleteErrors.isNotEmpty()) actions.add("Del Errors: ${deleteErrors.joinToString(" | ")}")
             if (existingMatchingIps.isNotEmpty()) actions.add("${existingMatchingIps.size} already matching")
 
             val actionSummary = if (actions.isNotEmpty()) " (${actions.joinToString(", ")})" else ""
