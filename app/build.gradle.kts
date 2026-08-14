@@ -17,8 +17,11 @@ android {
     applicationId = "com.aistudio.cfipscanner.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.2"
+    
+    // Auto-increment version code based on GitHub Actions run number
+    val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
+    versionCode = runNumber
+    versionName = "1.$runNumber.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
