@@ -72,8 +72,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.event_name != 'pull_request'
         with:
-          tag_name: "v1.2-${{ github.run_number }}"
-          name: "Release v1.2 (Build ${{ github.run_number }})"
+          tag_name: "v1.45-${{ github.run_number }}"
+          name: "Release v1.45 (Build ${{ github.run_number }})"
           files: app/build/outputs/apk/debug/*.apk
           draft: false
           prerelease: false
