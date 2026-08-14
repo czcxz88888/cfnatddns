@@ -21,7 +21,7 @@ android {
     // Auto-increment version code based on GitHub Actions run number
     val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
     versionCode = runNumber
-    versionName = "1.$runNumber.0"
+    versionName = "1.4.$runNumber"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
